@@ -7,6 +7,7 @@ import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { AppException } from '../exceptions/app.exception';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') implements CanActivate {
@@ -26,4 +27,12 @@ export class JwtAuthGuard extends AuthGuard('jwt') implements CanActivate {
 
     return super.canActivate(context);
   }
+
+  handleRequest(err: any, user: any) {
+    if (err || !user) {
+      throw err || new AppException('UNAUTHORIZED');
+    }
+    return user;
+  }
 }
+

@@ -15,12 +15,18 @@ export class SignupDto {
   @IsNotEmpty()
   @MinLength(2)
   @MaxLength(100)
+  @Matches(englishNameRegex, {
+    message: 'English name must contain English letters only',
+  })
   nameEn: string;
 
   @IsString()
   @IsNotEmpty()
   @MinLength(2)
   @MaxLength(100)
+  @Matches(arabicNameRegex, {
+    message: 'Arabic name must contain Arabic letters only',
+  })
   nameAr: string;
 
   @IsEmail()

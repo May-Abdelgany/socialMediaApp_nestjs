@@ -11,8 +11,19 @@ import { MongoServerError } from 'mongodb';
 import { Error as MongooseError } from 'mongoose';
 import { AppException } from '../exceptions/app.exception';
 import { BilingualMessage, ERROR_CATALOG } from '../constants/error-catalog';
-import { ApiErrorResponse } from '../interfaces/api-error-response.interface';
+import {
+  ApiErrorResponse,
+  ApiFieldError,
+} from '../interfaces/api-error-response.interface';
 import { getRequestLang } from '../utils/get-request-lang.util';
+
+interface ResolvedError {
+  statusCode: number;
+  error: string;
+  message: BilingualMessage;
+  errors?: ApiFieldError[];
+  logAsError: boolean;
+}
 
 /**
  * Single global error handler for the whole app.
@@ -35,7 +46,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
     const lang = getRequestLang(request);
 
-    const { statusCode, error, message, logAsError } = this.resolve(exception);
+    const { statusCode, error, message, errors, logAsError } = this.resolve(exception);
 
     if (logAsError) {
       this.logger.error(
@@ -50,6 +61,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       error,
       lang,
       message,
+      ...(errors ? { errors } : {}),
       path: request.url,
       timestamp: new Date().toISOString(),
     };
@@ -57,12 +69,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     response.status(statusCode).json(body);
   }
 
-  private resolve(exception: unknown): {
-    statusCode: number;
-    error: string;
-    message: BilingualMessage;
-    logAsError: boolean;
-  } {
+  private resolve(exception: unknown): ResolvedError {
     // 1. Our own bilingual exceptions
     if (exception instanceof AppException) {
       return {
@@ -93,17 +100,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
     };
   }
 
-  private resolveHttpException(exception: HttpException): {
-    statusCode: number;
-    error: string;
-    message: BilingualMessage;
-    logAsError: boolean;
-  } {
+  private resolveHttpException(exception: HttpException): ResolvedError {
     const statusCode = exception.getStatus();
     const payload = exception.getResponse();
 
     // Produced by bilingual-validation.exception-factory.ts (preferred path):
-    // { error: 'VALIDATION_ERROR', fieldErrors: [{ field, message: { en, ar } }], message: string[] }
+    // { error: 'VALIDATION_ERROR', fieldErrors: [{ field, message: { en, ar } }] }
+    // Each field keeps its own entry in `errors` — nothing is joined into one string.
     if (
       statusCode === HttpStatus.BAD_REQUEST &&
       typeof payload === 'object' &&
@@ -111,17 +114,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
       Array.isArray((payload as Record<string, unknown>).fieldErrors)
     ) {
       const fieldErrors = (
-        payload as {
-          fieldErrors: { field: string; message: BilingualMessage }[];
-        }
+        payload as { fieldErrors: ApiFieldError[] }
       ).fieldErrors;
       return {
         statusCode,
         error: ERROR_CATALOG.VALIDATION_ERROR.error,
-        message: {
-          en: fieldErrors.map((f) => f.message.en).join(', '),
-          ar: fieldErrors.map((f) => f.message.ar).join('، '),
-        },
+        message: ERROR_CATALOG.VALIDATION_ERROR.message,
+        errors: fieldErrors,
         logAsError: false,
       };
     }
@@ -138,10 +137,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
       return {
         statusCode,
         error: ERROR_CATALOG.VALIDATION_ERROR.error,
-        message: {
-          en: validationMessages.join('; '),
-          ar: ERROR_CATALOG.VALIDATION_ERROR.message.ar,
-        },
+        message: ERROR_CATALOG.VALIDATION_ERROR.message,
+        errors: validationMessages.map((text) => ({
+          field: text.split(' ')[0] ?? 'unknown',
+          message: { en: text, ar: ERROR_CATALOG.VALIDATION_ERROR.message.ar },
+        })),
         logAsError: false,
       };
     }
@@ -150,8 +150,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const fallbackText =
       typeof payload === 'string'
         ? payload
-        : ((payload as Record<string, unknown>)?.message?.toString() ??
-          exception.message);
+        : (payload as Record<string, unknown>)?.message?.toString() ??
+          exception.message;
 
     return {
       statusCode,
@@ -164,12 +164,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     };
   }
 
-  private resolveMongoError(exception: unknown): {
-    statusCode: number;
-    error: string;
-    message: BilingualMessage;
-    logAsError: boolean;
-  } | null {
+  private resolveMongoError(exception: unknown): ResolvedError | null {
     // Duplicate key (e.g. unique email)
     if (exception instanceof MongoServerError && exception.code === 11000) {
       const field = Object.keys(exception.keyPattern ?? {})[0] ?? 'field';

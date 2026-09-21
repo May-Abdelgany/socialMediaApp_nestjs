@@ -10,7 +10,9 @@ export const FIELD_LABELS: Record<string, { en: string; ar: string }> = {
   password: { en: 'Password', ar: 'كلمة المرور' },
   avatar: { en: 'Avatar', ar: 'الصورة الشخصية' },
   phone: { en: 'Phone number', ar: 'رقم الهاتف' },
+  refreshToken: { en: 'Refresh token', ar: 'رمز التحديث' },
 };
+
  
 export function getFieldLabel(property: string): { en: string; ar: string } {
   return FIELD_LABELS[property] ?? { en: property, ar: property };

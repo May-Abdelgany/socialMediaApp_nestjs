@@ -1,9 +1,9 @@
-import { ConflictException, Injectable } from '@nestjs/common';
-
+import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 
 import { User, UserDocument } from './schemas/user.schema';
+import { AppException } from '../common/exceptions/app.exception';
 
 @Injectable()
 export class UsersService {
@@ -17,7 +17,11 @@ export class UsersService {
   }
 
   async findOne(id: string) {
-    return this.userModel.findById(id).lean().exec();
+    const user = await this.userModel.findById(id).lean().exec();
+    if (!user) {
+      throw new AppException('USER_NOT_FOUND');
+    }
+    return user;
   }
 
   async findByEmail(email: string) {
@@ -44,23 +48,17 @@ export class UsersService {
     } catch (error) {
       const mongoError = error as { code?: number };
       if (mongoError.code === 11000) {
-        throw new ConflictException('Email already exists');
+        throw new AppException('EMAIL_ALREADY_EXISTS');
       }
       throw error;
     }
   }
 
-  async updateRefreshToken(userId: string, refreshTokenHash: string) {
-    return this.userModel.updateOne(
-      {
-        _id: userId,
-      },
-      {
-        $set: {
-          refreshTokenHash,
-          refreshTokenExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        },
-      },
-    );
+  async findById(id: string): Promise<UserDocument | null> {
+    return this.userModel.findById(id).exec();
+  }
+
+  async findByEmailWithPassword(email: string): Promise<UserDocument | null> {
+    return this.userModel.findOne({ email }).select('+password').exec();
   }
 }

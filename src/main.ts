@@ -4,6 +4,7 @@ import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { bilingualValidationExceptionFactory } from './common/pipes/bilingual-validation.exception-factory';
 
 async function bootstrap() {
@@ -14,6 +15,9 @@ async function bootstrap() {
 
   // Catch-all for every thrown error in the app, formatted bilingually
   app.useGlobalFilters(new AllExceptionsFilter());
+
+  // Wrap every successful response in a single success/error contract
+  app.useGlobalInterceptors(new ResponseInterceptor());
 
   // Makes DTO validation failures (class-validator) come out bilingual too
   app.useGlobalPipes(

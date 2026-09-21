@@ -54,18 +54,6 @@ export class User {
     default: true,
   })
   isActive: boolean;
-
-  @Prop({
-    default: null,
-    select: false,
-  })
-  refreshTokenHash?: string;
-
-  @Prop({
-    default: null,
-    select: false,
-  })
-  refreshTokenExpiresAt?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

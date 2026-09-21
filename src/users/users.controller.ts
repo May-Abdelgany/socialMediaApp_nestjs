@@ -12,13 +12,14 @@ export class UsersController {
     return this.usersService.findAll();
   }
 
+  @Get('me')
+  async getCurrentUser(@CurrentUser() user: { id: string; email: string }) {
+    return this.usersService.findOne(user.id);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.usersService.findOne(id);
   }
-
-  @Get('me')
-  getCurrentUser(@CurrentUser() user: { id: string; email: string }) {
-    return user;
-  }
 }
+
