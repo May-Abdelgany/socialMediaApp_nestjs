@@ -41,9 +41,9 @@ export class User {
   password: string;
 
   @Prop({
-    default: null,
+    default: [],
   })
-  avatar?: string;
+  avatar: string[];
 
   @Prop({
     default: false,
