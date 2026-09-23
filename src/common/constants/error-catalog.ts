@@ -84,6 +84,14 @@ export const ERROR_CATALOG = {
       ar: 'كلمة المرور يجب أن تكون قوية.',
     },
   },
+  PASSWORDS_DO_NOT_MATCH: {
+    statusCode: HttpStatus.BAD_REQUEST,
+    error: 'PASSWORDS_DO_NOT_MATCH',
+    message: {
+      en: 'Password and confirm password do not match.',
+      ar: 'كلمة المرور وتأكيد كلمة المرور غير متطابقتين.',
+    },
+  },
 
   // ---------- Users ----------
   EMAIL_ALREADY_EXISTS: {

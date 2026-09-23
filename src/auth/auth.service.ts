@@ -22,12 +22,16 @@ export class AuthService {
   async signup(dto: SignupDto, meta?: DeviceMeta) {
     const email = dto.email.toLowerCase().trim();
 
+    if (dto.password !== dto.confirmPassword) {
+      throw new AppException('PASSWORDS_DO_NOT_MATCH');
+    }
+
     const existingUser = await this.usersService.findByEmail(email);
     if (existingUser) {
       throw new AppException('EMAIL_ALREADY_EXISTS');
     }
 
-    const passwordHash = await bcrypt.hash(dto.password, this.SALT_ROUNDS);
+    const passwordHash = await this.storePassword(dto.password);
 
     const user = await this.usersService.create({
       nameEn: dto.nameEn.trim(),
@@ -60,7 +64,7 @@ export class AuthService {
 
     // password must be selected explicitly since the schema hides it by default
     const user = await this.usersService.findByEmailWithPassword(email);
-    const isMatch = user && (await bcrypt.compare(dto.password, user.password));
+    const isMatch = user && (await this.verifyPassword(dto.password, user.password));
 
     if (!user || !isMatch) {
       throw new AppException('INVALID_CREDENTIALS');
@@ -152,6 +156,30 @@ export class AuthService {
       lastUsedAt: s.lastUsedAt,
       createdAt: (s as any).createdAt,
     }));
+  }
+
+  private isSha256Password(value: string): boolean {
+    return /^[a-fA-F0-9]{64}$/.test(value);
+  }
+
+  private async storePassword(password: string): Promise<string> {
+    if (this.isSha256Password(password)) {
+      return password;
+    }
+
+    return bcrypt.hash(password, this.SALT_ROUNDS);
+  }
+
+  private async verifyPassword(inputPassword: string, storedPassword: string) {
+    if (this.isSha256Password(inputPassword)) {
+      if (storedPassword.startsWith('$2')) {
+        return bcrypt.compare(inputPassword, storedPassword);
+      }
+
+      return inputPassword === storedPassword;
+    }
+
+    return bcrypt.compare(inputPassword, storedPassword);
   }
 
   private async issueTokensForNewSession(
